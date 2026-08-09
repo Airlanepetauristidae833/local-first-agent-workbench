@@ -1,0 +1,171 @@
+name: ${COMPOSE_PROJECT_NAME:-local-first-agent}
+
+services:
+  knowledge:
+    image: local-first-agent/knowledge:local
+    build:
+      context: ./services/knowledge
+      target: runtime
+    restart: unless-stopped
+    environment:
+      HF_HOME: /models
+      TZ: ${TZ:-UTC}
+      KNOWLEDGE_EMBEDDING_MODEL: ${KNOWLEDGE_EMBEDDING_MODEL:-BAAI/bge-m3}
+      KNOWLEDGE_MAX_TEXT_CHARS_PER_FILE: ${KNOWLEDGE_MAX_TEXT_CHARS_PER_FILE:-500000}
+      KNOWLEDGE_SWEEP_SECONDS: ${KNOWLEDGE_SWEEP_SECONDS:-300}
+      KNOWLEDGE_WATCH_REFRESH_SECONDS: ${KNOWLEDGE_WATCH_REFRESH_SECONDS:-15}
+      KNOWLEDGE_WATCH_POLL_MS: ${KNOWLEDGE_WATCH_POLL_MS:-5000}
+      KNOWLEDGE_ORPHAN_GRACE_SECONDS: ${KNOWLEDGE_ORPHAN_GRACE_SECONDS:-300}
+    volumes:
+      - "${LOCAL_STATE_ROOT:-./runtime}/data/knowledge:/data"
+      - "${OBSIDIAN_VAULT_HOST_ROOT:-./vault}:/vault"
+      - "${KNOWLEDGE_SOURCE_HOST_ROOT:-./knowledge-sources}:/sources:ro"
+      - embedding-models:/models
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8100/health', timeout=3)"]
+      interval: 20s
+      timeout: 5s
+      retries: 9
+      start_period: 180s
+    networks: [agent-network]
+
+  search:
+    image: ${SEARXNG_IMAGE:-searxng/searxng:2026.7.26-b060c780d}
+    restart: unless-stopped
+    environment:
+      SEARXNG_SETTINGS_PATH: /etc/searxng/settings.yml
+      TZ: ${TZ:-UTC}
+    volumes:
+      - "${LOCAL_STATE_ROOT:-./runtime}/config/searxng/settings.yml:/etc/searxng/settings.yml:ro"
+    healthcheck:
+      test: ["CMD", "python", "-c", "from pathlib import Path; assert b'searxng' in Path('/proc/1/cmdline').read_bytes()"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks: [agent-network]
+
+  api:
+    image: local-first-agent/api:local
+    build:
+      context: ./services/api
+      target: runtime
+    restart: unless-stopped
+    env_file:
+      - ${LOCAL_STATE_ROOT:-./runtime}/secrets/agent-bridge.env
+    environment:
+      APP_NAME: ${APP_NAME:-Local-First Agent API}
+      APP_VERSION: ${APP_VERSION:-1.0.0}
+      API_DATA_DIR: /app/data
+      API_LOG_DIR: /app/logs
+      API_LOG_LEVEL: ${API_LOG_LEVEL:-INFO}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-}
+      OLLAMA_CONNECT_TIMEOUT_SECONDS: ${OLLAMA_CONNECT_TIMEOUT_SECONDS:-3}
+      OLLAMA_REQUEST_TIMEOUT_SECONDS: ${OLLAMA_REQUEST_TIMEOUT_SECONDS:-1200}
+      OLLAMA_FIRST_TOKEN_TIMEOUT_SECONDS: ${OLLAMA_FIRST_TOKEN_TIMEOUT_SECONDS:-180}
+      OLLAMA_STREAM_IDLE_TIMEOUT_SECONDS: ${OLLAMA_STREAM_IDLE_TIMEOUT_SECONDS:-90}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
+      OLLAMA_THINK: ${OLLAMA_THINK:-false}
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-16384}
+      OLLAMA_NUM_PREDICT: ${OLLAMA_NUM_PREDICT:-4096}
+      AGENT_CONTEXT_BUDGET_TOKENS: ${AGENT_CONTEXT_BUDGET_TOKENS:-10000}
+      AGENT_CONTEXT_COMPACT_TRIGGER_TOKENS: ${AGENT_CONTEXT_COMPACT_TRIGGER_TOKENS:-7000}
+      AGENT_CONTEXT_RECENT_MESSAGES: ${AGENT_CONTEXT_RECENT_MESSAGES:-8}
+      AGENT_CONTEXT_SUMMARY_MAX_TOKENS: ${AGENT_CONTEXT_SUMMARY_MAX_TOKENS:-1200}
+      WORKSPACE_ROOT: /workspaces
+      KNOWLEDGE_SERVICE_URL: http://knowledge:8100
+      SEARCH_SERVICE_URL: http://search:8080
+      PUBLIC_OPEN_WEBUI_URL: ${OPEN_WEBUI_URL:-http://127.0.0.1:3000}
+      PUBLIC_AGENT_URL: ${AGENT_WORKBENCH_URL:-http://127.0.0.1:8000/console}
+      TZ: ${TZ:-UTC}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - "${API_BIND:-127.0.0.1}:${API_PORT:-8000}:8000"
+    volumes:
+      - "${LOCAL_STATE_ROOT:-./runtime}/data/api:/app/data"
+      - "${LOCAL_STATE_ROOT:-./runtime}/logs/api:/app/logs"
+      - "${WORKSPACE_HOST_ROOT:-./workspaces}:/workspaces:ro"
+    depends_on:
+      knowledge:
+        condition: service_healthy
+      search:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 4s
+      retries: 8
+      start_period: 15s
+    networks: [agent-network]
+
+  open-webui:
+    image: ${OPEN_WEBUI_IMAGE:-ghcr.io/open-webui/open-webui:v0.11.0}
+    restart: unless-stopped
+    env_file:
+      - ${LOCAL_STATE_ROOT:-./runtime}/secrets/open-webui.env
+    environment:
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      WEBUI_AUTH: "True"
+      ENABLE_SIGNUP: ${OPEN_WEBUI_ENABLE_SIGNUP:-true}
+      ENABLE_LOGIN_FORM: "True"
+      WEBUI_NAME: Local-First Agent
+      WEBUI_URL: ${OPEN_WEBUI_URL:-http://127.0.0.1:3000}
+      CORS_ALLOW_ORIGIN: ${OPEN_WEBUI_CORS_ALLOW_ORIGIN:-http://127.0.0.1:3000;http://localhost:3000}
+      ENABLE_WEBSOCKET_SUPPORT: "true"
+      ENABLE_TITLE_GENERATION: "false"
+      ENABLE_TAGS_GENERATION: "false"
+      ENABLE_FOLLOW_UP_GENERATION: "false"
+      ENABLE_AUTOCOMPLETE_GENERATION: "false"
+      AIOHTTP_CLIENT_TIMEOUT: ${OPEN_WEBUI_UPSTREAM_TIMEOUT_SECONDS:-3600}
+      USER_AGENT: Local-First-Agent/1.0
+      TZ: ${TZ:-UTC}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - "${OPEN_WEBUI_BIND:-127.0.0.1}:${OPEN_WEBUI_PORT:-3000}:8080"
+    volumes:
+      - "${LOCAL_STATE_ROOT:-./runtime}/data/open-webui:/app/backend/data"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3)"]
+      interval: 10s
+      timeout: 4s
+      retries: 18
+      start_period: 45s
+    networks: [agent-network]
+
+  api-tests:
+    profiles: [test]
+    image: local-first-agent/api-test:local
+    build:
+      context: ./services/api
+      target: test
+    environment:
+      API_DATA_DIR: /tmp/local-first-agent/data
+      API_LOG_DIR: /tmp/local-first-agent/logs
+      API_LOG_LEVEL: WARNING
+      OLLAMA_BASE_URL: http://ollama.invalid
+      OLLAMA_MODEL: test-model
+      OLLAMA_THINK: "false"
+      PERSONAL_AGENT_BRIDGE_TOKEN: test-only-bridge-token
+      WORKSPACE_ROOT: /tmp/local-first-agent/workspaces
+    networks: [agent-network]
+
+  knowledge-tests:
+    profiles: [test]
+    image: local-first-agent/knowledge-test:local
+    build:
+      context: ./services/knowledge
+      target: test
+    environment:
+      HF_HOME: /models
+      KNOWLEDGE_EMBEDDING_MODEL: BAAI/bge-m3
+    networks: [agent-network]
+
+networks:
+  agent-network:
+    driver: bridge
+
+volumes:
+  embedding-models:

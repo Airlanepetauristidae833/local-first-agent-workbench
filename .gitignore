@@ -1,0 +1,45 @@
+# Local configuration and generated secrets
+.env
+.env.*
+!.env.example
+secrets/
+
+# Runtime state (never publish)
+runtime/
+data/
+logs/
+backups/
+client-config/
+workspaces/
+vault/
+knowledge-sources/
+execution-workspaces/
+config/searxng/settings.yml
+
+# Databases, logs, archives, credentials, and generated certificates
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+**/*.log
+**/*.jsonl
+**/*.zip
+**/*.tar
+**/*.gz
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+
+# Language, test, and editor caches
+**/__pycache__/
+**/*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+node_modules/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

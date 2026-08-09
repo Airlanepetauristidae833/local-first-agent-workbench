@@ -1,0 +1,18 @@
+{
+  "id": "workspace-template",
+  "name": "Workspace Template",
+  "description": "Read-only validation workspace and template for future projects",
+  "capabilities": [
+    "inspect",
+    "search"
+  ],
+  "policy": {
+    "file_access": "read-only",
+    "command_execution": "disabled",
+    "command_allowlist": [],
+    "human_approval_required_for": [
+      "write",
+      "command"
+    ]
+  }
+}

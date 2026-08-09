@@ -1,0 +1,122 @@
+# Exact allowlist for the public release. Wildcards are intentionally forbidden.
+.env.example
+.gitattributes
+.github/workflows/ci.yml
+.gitignore
+config/searxng/settings.template.yml
+docker-compose.yml
+docs/ACCEPTANCE.md
+docs/ARCHITECTURE.md
+docs/OPERATIONS.md
+LICENSE
+public-manifest.txt
+README.md
+scripts/bootstrap.ps1
+scripts/bootstrap.py
+scripts/bootstrap.sh
+scripts/codex-worker.ps1
+scripts/configure_personal_agent.py
+scripts/privacy_scan.py
+scripts/start.ps1
+scripts/start.sh
+scripts/status.ps1
+scripts/status.py
+scripts/status.sh
+scripts/stop.ps1
+scripts/stop.sh
+scripts/test.ps1
+scripts/test.sh
+scripts/validate_sources.py
+SECURITY.md
+services/api/.dockerignore
+services/api/app/__init__.py
+services/api/app/config.py
+services/api/app/core/__init__.py
+services/api/app/core/logging.py
+services/api/app/main.py
+services/api/app/routers/__init__.py
+services/api/app/routers/agent.py
+services/api/app/routers/ai.py
+services/api/app/routers/chat_runs.py
+services/api/app/routers/knowledge.py
+services/api/app/routers/memory.py
+services/api/app/routers/openai_compat.py
+services/api/app/routers/orchestration.py
+services/api/app/routers/system.py
+services/api/app/routers/tasks.py
+services/api/app/routers/workspaces.py
+services/api/app/schemas/__init__.py
+services/api/app/schemas/agent.py
+services/api/app/schemas/ai.py
+services/api/app/schemas/chat_run.py
+services/api/app/schemas/memory.py
+services/api/app/schemas/openai_compat.py
+services/api/app/schemas/orchestration.py
+services/api/app/schemas/service.py
+services/api/app/schemas/task.py
+services/api/app/schemas/workspace.py
+services/api/app/services/__init__.py
+services/api/app/services/agent_chat_runner.py
+services/api/app/services/agent_service.py
+services/api/app/services/chat_run_service.py
+services/api/app/services/context_manager.py
+services/api/app/services/external_chat_link_service.py
+services/api/app/services/memory_extractor.py
+services/api/app/services/memory_service.py
+services/api/app/services/ollama_client.py
+services/api/app/services/orchestration_service.py
+services/api/app/services/service_registry.py
+services/api/app/services/task_executor.py
+services/api/app/services/task_service.py
+services/api/app/services/workspace_service.py
+services/api/app/static/console.html
+services/api/Dockerfile
+services/api/requirements.txt
+services/api/requirements-dev.txt
+services/api/tests/conftest.py
+services/api/tests/test_agent.py
+services/api/tests/test_agent_chat_runner.py
+services/api/tests/test_agent_chat_watchdog.py
+services/api/tests/test_ai.py
+services/api/tests/test_chat_run_service.py
+services/api/tests/test_chat_runs.py
+services/api/tests/test_console_contract.py
+services/api/tests/test_context_manager.py
+services/api/tests/test_management.py
+services/api/tests/test_memory_extractor.py
+services/api/tests/test_memory_router.py
+services/api/tests/test_memory_service.py
+services/api/tests/test_openai_compat.py
+services/api/tests/test_orchestration.py
+services/api/tests/test_system.py
+services/api/tests/test_tasks.py
+services/api/tests/test_workspaces.py
+services/knowledge/.dockerignore
+services/knowledge/app.py
+services/knowledge/Dockerfile
+services/knowledge/tests/test_index_lifecycle.py
+templates/obsidian-vault/.gitignore
+templates/obsidian-vault/00 Inbox/.gitkeep
+templates/obsidian-vault/01 Projects/.gitkeep
+templates/obsidian-vault/02 Areas/.gitkeep
+templates/obsidian-vault/03 Knowledge/.gitkeep
+templates/obsidian-vault/04 Papers/.gitkeep
+templates/obsidian-vault/05 Experiments/.gitkeep
+templates/obsidian-vault/06 Decisions/.gitkeep
+templates/obsidian-vault/07 Meetings/.gitkeep
+templates/obsidian-vault/08 Daily/.gitkeep
+templates/obsidian-vault/09 Archive/.gitkeep
+templates/obsidian-vault/90 Templates/Daily.md
+templates/obsidian-vault/90 Templates/Decision.md
+templates/obsidian-vault/90 Templates/Experiment.md
+templates/obsidian-vault/90 Templates/Idea.md
+templates/obsidian-vault/90 Templates/Knowledge.md
+templates/obsidian-vault/90 Templates/Meeting.md
+templates/obsidian-vault/90 Templates/Paper.md
+templates/obsidian-vault/90 Templates/Project.md
+templates/obsidian-vault/91 Attachments/.gitkeep
+templates/obsidian-vault/99 System/Vault Guide.md
+templates/obsidian-vault/Home.md
+templates/obsidian-vault/README.md
+templates/workspace/.ai-workspace.json
+templates/workspace/README.md

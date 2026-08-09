@@ -1,0 +1,22 @@
+use_default_settings:
+  engines:
+    keep_only:
+      - bing
+      - github
+      - openalex
+      - crossref
+      - arxiv
+
+server:
+  bind_address: "0.0.0.0"
+  secret_key: "__SEARXNG_SECRET_KEY__"
+  limiter: false
+  image_proxy: false
+
+search:
+  formats:
+    - html
+    - json
+
+# The small allowlist avoids engines that routinely return CAPTCHA or startup
+# errors while retaining general, source-code, and scholarly discovery.
