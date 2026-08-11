@@ -5,8 +5,10 @@ import pytest
 
 from app.config import get_settings
 from app.main import app
+from app.routers import ai as ai_router
 from app.services.ollama_client import (
     OllamaClient,
+    OllamaResponseError,
     OllamaUnavailableError,
     get_ollama_client,
 )
@@ -113,6 +115,77 @@ def test_ready_is_503_while_health_stays_200(client) -> None:
     assert ready.status_code == 503
     assert ready.json()["detail"]["code"] == "ollama_not_ready"
     assert health.status_code == 200
+
+
+def test_chat_does_not_expose_upstream_error_details(client, monkeypatch) -> None:
+    secret = "private upstream body: user prompt and C:" + r"\secret\model.bin"
+    log_calls: list[tuple[str, tuple[object, ...]]] = []
+
+    class FailingOllama:
+        async def chat(self, **_kwargs):
+            raise OllamaResponseError(502, secret)
+
+    def capture_log(message: str, *args: object, **_kwargs: object) -> None:
+        log_calls.append((message, args))
+
+    monkeypatch.setattr(ai_router.logger, "warning", capture_log)
+    app.dependency_overrides[get_ollama_client] = FailingOllama
+
+    response = client.post("/api/v1/chat", json={"message": "hello"})
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == {
+        "code": "ollama_error",
+        "message": "Ollama request failed",
+    }
+    assert secret not in response.text
+    assert len(log_calls) == 1
+    rendered_log = log_calls[0][0] % log_calls[0][1]
+    assert "event=ollama_request_failed" in rendered_log
+    assert "error_type=OllamaResponseError" in rendered_log
+    assert "upstream_status=502" in rendered_log
+    assert secret not in rendered_log
+
+
+def test_stream_does_not_expose_upstream_error_details(client, monkeypatch) -> None:
+    secret = "private streamed body: user prompt and access token"
+    log_calls: list[tuple[str, tuple[object, ...]]] = []
+
+    class FailingStreamOllama:
+        async def list_models(self):
+            return [{"name": "test-model", "model": "test-model"}]
+
+        def select_model(self, _models, _requested_model=None):
+            return "test-model"
+
+        async def stream_chat(self, **_kwargs):
+            if False:
+                yield {}
+            raise OllamaResponseError(502, secret)
+
+    def capture_log(message: str, *args: object, **_kwargs: object) -> None:
+        log_calls.append((message, args))
+
+    monkeypatch.setattr(ai_router.logger, "warning", capture_log)
+    app.dependency_overrides[get_ollama_client] = FailingStreamOllama
+
+    with client.stream(
+        "POST",
+        "/api/v1/chat/stream",
+        json={"message": "hello"},
+    ) as response:
+        body = "".join(response.iter_text())
+
+    assert response.status_code == 200
+    assert '"code":"ollama_error"' in body
+    assert '"message":"Ollama request failed"' in body
+    assert secret not in body
+    assert len(log_calls) == 1
+    rendered_log = log_calls[0][0] % log_calls[0][1]
+    assert "operation=stream" in rendered_log
+    assert "error_type=OllamaResponseError" in rendered_log
+    assert "upstream_status=502" in rendered_log
+    assert secret not in rendered_log
 
 
 def test_connection_reset_is_normalized_to_ollama_error(monkeypatch) -> None:

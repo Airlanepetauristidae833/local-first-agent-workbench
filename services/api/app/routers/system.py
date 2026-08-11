@@ -4,14 +4,21 @@ import httpx
 from fastapi import APIRouter, Depends
 
 from app.config import get_settings
+from app.core.logging import get_logger
 from app.schemas.service import HealthResponse, ServiceListResponse
 from app.services.agent_service import AgentService
-from app.services.ollama_client import OllamaClient, OllamaError, get_ollama_client
+from app.services.ollama_client import (
+    OllamaClient,
+    OllamaError,
+    OllamaResponseError,
+    get_ollama_client,
+)
 from app.services.orchestration_service import OrchestrationService
 from app.services.service_registry import ServiceRegistry, get_service_registry
 from app.services.workspace_service import WorkspaceService, get_workspace_service
 
 router = APIRouter(tags=["system"])
+logger = get_logger("routers.system")
 
 
 @router.get("/health", response_model=HealthResponse, include_in_schema=False)
@@ -83,7 +90,20 @@ async def overview(
         model = ollama.select_model(models)
         ollama_state = {"healthy": True, "model": model, "models": len(models)}
     except OllamaError as exc:
-        ollama_state = {"healthy": False, "model": None, "models": 0, "error": str(exc)}
+        upstream_status = (
+            exc.status_code if isinstance(exc, OllamaResponseError) else "-"
+        )
+        logger.warning(
+            "event=ollama_overview_failed error_type=%s upstream_status=%s",
+            exc.__class__.__name__,
+            upstream_status,
+        )
+        ollama_state = {
+            "healthy": False,
+            "model": None,
+            "models": 0,
+            "error": "Ollama status is unavailable",
+        }
     return {
         "services": {
             "api": {"healthy": True},

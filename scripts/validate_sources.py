@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import ast
+from html.parser import HTMLParser
 from pathlib import Path
-import re
 import shutil
 import subprocess
 import sys
@@ -21,6 +21,44 @@ PYTHON_ROOTS = (
 CONSOLE = ROOT / "services" / "api" / "app" / "static" / "console.html"
 
 
+class _ScriptCollector(HTMLParser):
+    """Collect script elements using the same case-insensitive tag rules as HTML."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=False)
+        self.scripts: list[tuple[bool, list[str]]] = []
+        self._current_script: list[str] | None = None
+
+    def handle_starttag(
+        self, tag: str, attrs: list[tuple[str, str | None]]
+    ) -> None:
+        if tag != "script":
+            return
+        content: list[str] = []
+        self.scripts.append((any(name == "src" for name, _ in attrs), content))
+        self._current_script = content
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "script":
+            self._current_script = None
+
+    def handle_data(self, data: str) -> None:
+        if self._current_script is not None:
+            self._current_script.append(data)
+
+    def handle_entityref(self, name: str) -> None:
+        if self._current_script is not None:
+            self._current_script.append(f"&{name};")
+
+    def handle_charref(self, name: str) -> None:
+        if self._current_script is not None:
+            self._current_script.append(f"&#{name};")
+
+    @property
+    def has_unclosed_script(self) -> bool:
+        return self._current_script is not None
+
+
 def validate_python() -> int:
     count = 0
     for source_root in PYTHON_ROOTS:
@@ -30,14 +68,24 @@ def validate_python() -> int:
     return count
 
 
-def console_javascript() -> str:
-    html = CONSOLE.read_text(encoding="utf-8")
-    scripts = re.findall(r"<script(?:\s[^>]*)?>(.*?)</script>", html, re.DOTALL)
-    if len(scripts) != 1:
+def _inline_javascript(html: str) -> str:
+    parser = _ScriptCollector()
+    parser.feed(html)
+    parser.close()
+    if parser.has_unclosed_script:
+        raise RuntimeError("Workbench contains an unclosed script element")
+    if len(parser.scripts) != 1:
         raise RuntimeError(
-            f"Expected one inline Workbench script, found {len(scripts)}"
+            f"Expected one inline Workbench script, found {len(parser.scripts)}"
         )
-    return scripts[0]
+    has_src, content = parser.scripts[0]
+    if has_src:
+        raise RuntimeError("Expected the Workbench script to be inline, found src")
+    return "".join(content)
+
+
+def console_javascript() -> str:
+    return _inline_javascript(CONSOLE.read_text(encoding="utf-8"))
 
 
 def validate_javascript(source: str) -> str:

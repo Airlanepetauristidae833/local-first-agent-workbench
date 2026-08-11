@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import httpx
 
 from app.config import get_settings
+from app.main import app
 from app.routers import knowledge as knowledge_router
 from app.routers import system as system_router
 from app.schemas.agent import (
@@ -16,6 +17,7 @@ from app.schemas.agent import (
 from app.schemas.memory import MemoryCreate, MemoryKind, MemoryScope
 from app.services.agent_service import AgentService
 from app.services.memory_service import MemoryService
+from app.services.ollama_client import OllamaResponseError, get_ollama_client
 
 
 def test_probe_accepts_successful_plain_text_liveness(monkeypatch) -> None:
@@ -67,6 +69,49 @@ def test_system_overview_uses_searxng_liveness_without_searching(
     assert response.json()["services"]["search"]["healthy"] is True
     assert any(url.endswith("/healthz") for url in calls)
     assert not any(url.endswith("/search") or "/search?" in url for url in calls)
+
+
+def test_system_overview_does_not_expose_ollama_error_details(
+    client, monkeypatch
+) -> None:
+    secret = "private upstream body: prompt and C:" + r"\secret\model.bin"
+    log_calls: list[tuple[str, tuple[object, ...]]] = []
+
+    class FailingOllama:
+        async def list_models(self):
+            raise OllamaResponseError(500, secret)
+
+    async def healthy_probe(
+        url: str, params: dict | None = None
+    ) -> tuple[bool, dict]:
+        if url.endswith("/health"):
+            return True, {"status": "ok", "index": {"stale_projects": 0}}
+        return True, {}
+
+    def capture_log(message: str, *args: object, **_kwargs: object) -> None:
+        log_calls.append((message, args))
+
+    monkeypatch.setattr(system_router, "_probe", healthy_probe)
+    monkeypatch.setattr(system_router.logger, "warning", capture_log)
+    app.dependency_overrides[get_ollama_client] = FailingOllama
+
+    response = client.get("/api/v1/system/overview")
+
+    assert response.status_code == 200
+    ollama = response.json()["services"]["ollama"]
+    assert ollama == {
+        "healthy": False,
+        "model": None,
+        "models": 0,
+        "error": "Ollama status is unavailable",
+    }
+    assert secret not in response.text
+    assert len(log_calls) == 1
+    rendered_log = log_calls[0][0] % log_calls[0][1]
+    assert "event=ollama_overview_failed" in rendered_log
+    assert "error_type=OllamaResponseError" in rendered_log
+    assert "upstream_status=500" in rendered_log
+    assert secret not in rendered_log
 
 
 def make_session(identifier: str = "managed-session", project_id: str | None = None) -> AgentSession:

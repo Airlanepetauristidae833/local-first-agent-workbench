@@ -1,23 +1,26 @@
 from __future__ import annotations
 
 import asyncio
-from collections import Counter
-from contextlib import asynccontextmanager, suppress
-from datetime import datetime, timezone
 import hashlib
 import json
 import os
-from pathlib import Path
+import re
 import shutil
 import sqlite3
+import stat
 import threading
+import xml.etree.ElementTree as ET
+import zipfile
+from collections import Counter
+from contextlib import asynccontextmanager, suppress
+from datetime import datetime, timezone
+from pathlib import Path, PureWindowsPath
 from typing import Any, Iterable
 from uuid import UUID, uuid4
-import zipfile
-import xml.etree.ElementTree as ET
 
 import chromadb
-from fastapi import FastAPI, HTTPException, Query as FastAPIQuery
+from fastapi import FastAPI, HTTPException
+from fastapi import Query as FastAPIQuery
 from pydantic import BaseModel, Field, field_validator
 from sentence_transformers import SentenceTransformer
 from watchfiles import awatch
@@ -25,6 +28,11 @@ from watchfiles import awatch
 VAULT, SOURCES, DATA = Path("/vault"), Path("/sources"), Path("/data")
 MANAGED_PROJECT_ROOT = "Projects/AI Workbench"
 REGISTRY = DATA / "projects.json"
+PROJECT_ID_RE = re.compile(r"[a-z][a-z0-9-]{0,62}\Z")
+HANDOFF_NOTE_RE = re.compile(
+    r"\d{4}-\d{2}-\d{2}_\d{6}_\d{6}_codex-handoff_[0-9a-f]{6}\.md\Z"
+)
+NOTE_LABELS = frozenset({"agent-progress", "codex-handoff", "web-research"})
 
 EMBEDDING_MODEL = os.getenv("KNOWLEDGE_EMBEDDING_MODEL", "BAAI/bge-m3")
 MAX_TEXT_CHARS_PER_FILE = int(os.getenv("KNOWLEDGE_MAX_TEXT_CHARS_PER_FILE", "500000"))
@@ -161,8 +169,17 @@ class ProjectCreate(BaseModel):
     def normalize_sources(cls, values: list[str]) -> list[str]:
         normalized: list[str] = []
         for value in values:
-            value = value.strip().replace("\\", "/").strip("/")
-            if not value or value == ".":
+            value = value.strip().replace("\\", "/")
+            windows_path = PureWindowsPath(value)
+            if (
+                not value
+                or value.startswith("/")
+                or windows_path.drive
+                or windows_path.root
+            ):
+                raise ValueError("source paths must be relative subdirectories")
+            parts = value.split("/")
+            if any(part in {"", ".", ".."} for part in parts):
                 raise ValueError("source paths must name a subdirectory")
             if value not in normalized:
                 normalized.append(value)
@@ -319,11 +336,107 @@ class KnowledgeService:
 
     @staticmethod
     def safe(root: Path, relative: str) -> Path:
-        candidate = (root / relative).resolve()
-        resolved_root = root.resolve()
-        if resolved_root not in candidate.parents and candidate != resolved_root:
-            raise ValueError("path escapes configured root")
-        return candidate
+        """Return a canonical descendant without accepting absolute or traversal paths.
+
+        ``realpath`` is intentional: lexical normalization alone does not stop an
+        existing symlink or Windows reparse point from escaping the configured root.
+        The prefix guard is retained alongside ``commonpath`` so both humans and
+        static analysis can prove that the returned path stays below the root.
+        """
+        if not isinstance(relative, str) or not relative or "\x00" in relative:
+            raise ValueError("path must be a non-empty relative path")
+        normalized = relative.replace("\\", "/")
+        windows_path = PureWindowsPath(relative)
+        if normalized.startswith("/") or windows_path.drive or windows_path.root:
+            raise ValueError("absolute paths are not allowed")
+        parts = normalized.split("/")
+        if any(part in {"", ".", ".."} for part in parts):
+            raise ValueError("path traversal is not allowed")
+
+        resolved_root_text = os.path.realpath(
+            os.path.normcase(os.path.abspath(os.fspath(root)))
+        )
+        candidate_text = os.path.realpath(
+            os.path.normcase(os.path.join(resolved_root_text, *parts))
+        )
+        # Keep the recognized normalization -> prefix-check -> access sequence on
+        # the exact value returned to callers.  Besides aiding static analysis,
+        # this avoids validating a differently cased alias on Windows.
+        if candidate_text.startswith(resolved_root_text):
+            try:
+                common = os.path.commonpath((resolved_root_text, candidate_text))
+            except ValueError as exc:
+                raise ValueError("path escapes configured root") from exc
+            root_prefix = resolved_root_text.rstrip(os.sep) + os.sep
+            if os.path.normcase(common) != resolved_root_text:
+                raise ValueError("path escapes configured root")
+            if candidate_text != resolved_root_text and not candidate_text.startswith(
+                root_prefix
+            ):
+                raise ValueError("path escapes configured root")
+            return Path(candidate_text)
+        raise ValueError("path escapes configured root")
+
+    @staticmethod
+    def _validated_project_id(project_id: str) -> str:
+        if PROJECT_ID_RE.fullmatch(project_id) is None:
+            raise ValueError("invalid project id")
+        return project_id
+
+    @staticmethod
+    def _is_reparse_point(path: Path) -> bool:
+        try:
+            metadata = path.lstat()
+        except FileNotFoundError:
+            return False
+        if stat.S_ISLNK(metadata.st_mode):
+            return True
+        file_attributes = getattr(metadata, "st_file_attributes", 0)
+        if file_attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0):
+            return True
+        is_junction = getattr(path, "is_junction", None)
+        return bool(is_junction and is_junction())
+
+    @classmethod
+    def _reject_reparse_components(cls, root: Path, candidate: Path) -> None:
+        """Reject links/junctions below a trusted root before managed writes."""
+        relative = candidate.relative_to(root)
+        current = root
+        for part in relative.parts:
+            current = current / part
+            if cls._is_reparse_point(current):
+                raise ValueError("managed paths must not contain symbolic links")
+
+    def _managed_path(self, candidate: Path) -> Path:
+        """Canonicalize an absolute candidate and confine it to managed storage."""
+        managed_root = self.managed_root()
+        root_text = os.path.realpath(
+            os.path.normcase(os.path.abspath(os.fspath(managed_root)))
+        )
+        lexical_text = os.path.abspath(os.path.normcase(os.fspath(candidate)))
+        candidate_text = os.path.realpath(lexical_text)
+        if candidate_text.startswith(root_text):
+            try:
+                common = os.path.commonpath((root_text, candidate_text))
+            except ValueError as exc:
+                raise ValueError("path escapes managed project storage") from exc
+            root_prefix = root_text.rstrip(os.sep) + os.sep
+            if os.path.normcase(common) != root_text:
+                raise ValueError("path escapes managed project storage")
+            if candidate_text != root_text and not candidate_text.startswith(root_prefix):
+                raise ValueError("path escapes managed project storage")
+            if lexical_text != root_text and not lexical_text.startswith(root_prefix):
+                raise ValueError("path escapes managed project storage")
+
+            resolved = Path(candidate_text)
+            lexical = Path(lexical_text)
+            try:
+                lexical.relative_to(Path(root_text))
+            except ValueError as exc:
+                raise ValueError("path escapes managed project storage") from exc
+            self._reject_reparse_components(Path(root_text), lexical)
+            return resolved
+        raise ValueError("path escapes managed project storage")
 
     def managed_root(self) -> Path:
         return self.safe(self.vault, MANAGED_PROJECT_ROOT)
@@ -368,8 +481,16 @@ class KnowledgeService:
     def _validated_source_roots(self, source_paths: Iterable[str]) -> list[Path]:
         roots: list[Path] = []
         for value in source_paths:
-            value = value.strip().replace("\\", "/").strip("/")
-            if not value or value == ".":
+            value = value.strip().replace("\\", "/")
+            windows_path = PureWindowsPath(value)
+            if (
+                not value
+                or value.startswith("/")
+                or windows_path.drive
+                or windows_path.root
+            ):
+                raise ValueError("source paths must be relative subdirectories")
+            if any(part in {"", ".", ".."} for part in value.split("/")):
                 raise ValueError("source paths must name a subdirectory")
             root = self.safe(self.sources, value)
             if root == self.sources.resolve():
@@ -386,26 +507,32 @@ class KnowledgeService:
 
     def add(self, project: ProjectCreate) -> dict[str, Any]:
         self._validated_source_roots(project.source_paths)
+        project_id = self._validated_project_id(project.id)
         with self.state_lock:
             projects = self._read_projects_unlocked()
-            if any(item["id"] == project.id for item in projects):
+            if any(item["id"] == project_id for item in projects):
                 raise ValueError("project id already exists")
-            vault_path = f"{MANAGED_PROJECT_ROOT}/{project.id}"
-            vault = self.safe(self.vault, vault_path)
-            vault.mkdir(parents=True, exist_ok=True)
-            note = vault / "00_Project.md"
+            managed_root = self.managed_root()
+            managed_root.mkdir(parents=True, exist_ok=True)
+            managed_root = self._managed_path(managed_root)
+            vault = self.safe(managed_root, project_id)
+            vault = self._managed_path(vault)
+            vault.mkdir(parents=False, exist_ok=True)
+            vault = self._managed_path(vault)
+            note = self._managed_path(vault / "00_Project.md")
             if not note.exists():
                 self._atomic_write(
                     note,
                     "---\n"
                     "type: project\n"
-                    f"project: {project.id}\n"
+                    f"project: {project_id}\n"
                     "status: active\n"
                     "---\n\n"
                     f"# {project.name}\n",
                 )
             item = project.model_dump() | {
-                "vault_path": vault_path,
+                "id": project_id,
+                "vault_path": f"{MANAGED_PROJECT_ROOT}/{project_id}",
                 "indexed_at": None,
                 "chunks": 0,
                 "archived": False,
@@ -436,11 +563,15 @@ class KnowledgeService:
         return managed_root == vault or managed_root in vault.parents
 
     def _overlay_path(self, project_id: str) -> Path:
-        return self.managed_root() / ".overlays" / project_id
+        project_id = self._validated_project_id(project_id)
+        return self.safe(self.managed_root(), f".overlays/{project_id}")
 
     def _writeback_path(self, project: dict[str, Any]) -> Path:
         vault = self._vault_path(project)
-        return vault if self._is_managed(vault) else self._overlay_path(project["id"])
+        candidate = (
+            vault if self._is_managed(vault) else self._overlay_path(project["id"])
+        )
+        return self._managed_path(candidate)
 
     def _project_roots(self, project: dict[str, Any]) -> list[tuple[str, Path]]:
         vault = self._vault_path(project)
@@ -1433,9 +1564,6 @@ class KnowledgeService:
     ) -> dict[str, Any]:
         project = self.project(project_id)
         directory = self._writeback_path(project) / "Progress"
-        safe_stage = "".join(
-            char if char.isalnum() or char in "-_" else "-" for char in request.stage
-        )[:80]
         lines = [
             "---",
             "type: agent-progress",
@@ -1452,7 +1580,9 @@ class KnowledgeService:
             request.content.strip(),
             "",
         ]
-        note = self._write_note(directory, safe_stage or "stage", "\n".join(lines))
+        # Stage remains in the document metadata; filenames use a server-owned
+        # category so request data never becomes a filesystem path component.
+        note = self._write_note(directory, "agent-progress", "\n".join(lines))
         indexed = self.schedule_index(project_id, reason="progress writeback")
         return {"project_id": project_id, "note": str(note), **indexed}
 
@@ -1510,10 +1640,11 @@ class KnowledgeService:
         self, project_id: str, request: CodexHandoffResult
     ) -> dict[str, Any]:
         project = self.project(project_id)
-        directory = self._writeback_path(project) / "Handoffs"
-        note = directory / Path(request.handoff_note).name
-        if not note.is_file() or note.parent.resolve() != directory.resolve():
-            raise FileNotFoundError(request.handoff_note)
+        directory = self._managed_path(self._writeback_path(project) / "Handoffs")
+        note = self._handoff_note_path(directory, request.handoff_note)
+        # Re-enumerate immediately before reading so the request is used only as
+        # an equality selector; the filesystem path itself comes from the server.
+        note = self._handoff_note_path(directory, request.handoff_note)
         content = note.read_text(encoding="utf-8")
         attempt_marker = (
             f"<!-- ai-workstation-codex-attempt:{request.attempt_id} -->"
@@ -1567,6 +1698,7 @@ class KnowledgeService:
             request.output or "_No output returned._",
             "",
         ]
+        note = self._handoff_note_path(directory, request.handoff_note)
         self._atomic_write(note, content.rstrip() + "\n" + "\n".join(lines))
         indexed = self.schedule_index(project_id, reason="handoff result")
         return {
@@ -1576,21 +1708,78 @@ class KnowledgeService:
             **indexed,
         }
 
-    @staticmethod
-    def _atomic_write(path: Path, content: str) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+    def _handoff_note_path(self, directory: Path, supplied: str) -> Path:
+        """Select an issued handoff from a server-owned directory enumeration."""
+        if not supplied or "\x00" in supplied:
+            raise ValueError("invalid handoff note path")
+        normalized = supplied.replace("\\", "/")
+        windows_path = PureWindowsPath(supplied)
+        supplied_is_absolute = bool(
+            normalized.startswith("/") or windows_path.drive or windows_path.root
+        )
+        if supplied_is_absolute:
+            requested_name = normalized.rsplit("/", 1)[-1]
+            expected = directory.as_posix().rstrip("/") + "/" + requested_name
+            if normalized != expected:
+                raise ValueError("handoff note is outside its project directory")
+        else:
+            if "/" in normalized or normalized in {".", ".."}:
+                raise ValueError("handoff note must be a filename")
+            requested_name = normalized
+
+        if HANDOFF_NOTE_RE.fullmatch(requested_name) is None:
+            raise ValueError("handoff note is not a generated handoff document")
+        resolved_directory = self._managed_path(directory)
+        for entry in resolved_directory.iterdir():
+            if entry.name != requested_name:
+                continue
+            if self._is_reparse_point(entry):
+                raise ValueError("handoff note must not be a symbolic link")
+            issued = self._managed_path(entry)
+            if issued.parent != resolved_directory or not entry.is_file():
+                raise ValueError("handoff note is not a regular project file")
+            return issued
+        raise FileNotFoundError(supplied)
+
+    def _atomic_write(self, path: Path, content: str) -> None:
+        destination = self._managed_path(path)
+        parent = self._managed_path(destination.parent)
+        parent.mkdir(parents=True, exist_ok=True)
+        parent = self._managed_path(parent)
+        destination = self._managed_path(path)
+        if destination.parent != parent:
+            raise ValueError("write destination escapes its managed directory")
+
+        temporary = self.safe(parent, f".write-{uuid4().hex}.tmp")
+        temporary = self._managed_path(temporary)
         try:
-            temporary.write_text(content, encoding="utf-8", newline="\n")
-            temporary.replace(path)
+            with temporary.open("x", encoding="utf-8", newline="\n") as handle:
+                handle.write(content)
+                handle.flush()
+                os.fsync(handle.fileno())
+            # Revalidate every path immediately before the atomic rename. This
+            # catches link/junction swaps that occurred while content was written.
+            parent = self._managed_path(parent)
+            destination = self._managed_path(path)
+            temporary = self._managed_path(temporary)
+            if destination.parent != parent or temporary.parent != parent:
+                raise ValueError("atomic write paths escaped their managed directory")
+            temporary.replace(destination)
         finally:
-            with suppress(OSError):
-                temporary.unlink()
+            with suppress(OSError, ValueError):
+                cleanup = self._managed_path(temporary)
+                cleanup.unlink()
 
     def _write_note(self, directory: Path, label: str, content: str) -> Path:
+        if label not in NOTE_LABELS:
+            raise ValueError("invalid note label")
+        directory = self._managed_path(directory)
         directory.mkdir(parents=True, exist_ok=True)
+        directory = self._managed_path(directory)
         stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S_%f")
-        note = directory / f"{stamp}_{label}_{uuid4().hex[:6]}.md"
+        note = self._managed_path(
+            directory / f"{stamp}_{label}_{uuid4().hex[:6]}.md"
+        )
         self._atomic_write(note, content)
         return note
 
@@ -1913,11 +2102,40 @@ class KnowledgeService:
                         "unsupported_files": int(stats.get("unsupported_files") or 0),
                     }
                 )
-        watcher = dict(self.watcher_state)
-        sweep = dict(self.sweep_state)
         with self.state_lock:
+            watcher_failed = bool(self.watcher_state.get("last_error"))
+            watcher = {
+                "running": bool(self.watcher_state.get("running")),
+                "roots": int(self.watcher_state.get("roots") or 0),
+                "restarts": int(self.watcher_state.get("restarts") or 0),
+                "indexing_projects": sorted(
+                    self.watcher_state.get("indexing_projects") or []
+                ),
+                "last_event_at": self.watcher_state.get("last_event_at"),
+                "last_error": "watcher operation failed" if watcher_failed else None,
+                "last_recovered_at": self.watcher_state.get("last_recovered_at"),
+            }
+            sweep_failed = bool(self.sweep_state.get("last_error"))
+            sweep = {
+                "running": bool(self.sweep_state.get("running")),
+                "last_started_at": self.sweep_state.get("last_started_at"),
+                "last_completed_at": self.sweep_state.get("last_completed_at"),
+                "last_error": "consistency sweep failed" if sweep_failed else None,
+            }
+            background_failed_raw = bool(
+                self.background_index_state.get("last_error")
+            )
             background = {
-                **self.background_index_state,
+                "last_started_at": self.background_index_state.get(
+                    "last_started_at"
+                ),
+                "last_completed_at": self.background_index_state.get(
+                    "last_completed_at"
+                ),
+                "last_error": (
+                    "background index failed" if background_failed_raw else None
+                ),
+                "last_error_at": self.background_index_state.get("last_error_at"),
                 "running_projects": sorted(self._background_index_running),
                 "queued_projects": sorted(
                     project_id
@@ -1925,14 +2143,25 @@ class KnowledgeService:
                     if reasons
                 ),
             }
+            cleanup_warnings = len(self.cleanup_state.get("warnings") or [])
+            cleanup = {
+                "last_run_at": self.cleanup_state.get("last_run_at"),
+                "removed_directories": int(
+                    self.cleanup_state.get("removed_directories") or 0
+                ),
+                "removed_bytes": int(self.cleanup_state.get("removed_bytes") or 0),
+                "skipped_recent": int(self.cleanup_state.get("skipped_recent") or 0),
+                "warnings": (
+                    ["cleanup operation reported a warning"] * cleanup_warnings
+                ),
+            }
         watcher_busy = bool(watcher.get("indexing_projects"))
         sweep_ready = bool(sweep.get("last_completed_at"))
         sweep_busy = bool(sweep.get("running"))
-        sweep_failed = bool(sweep.get("last_error"))
         background_busy = bool(
             background.get("running_projects") or background.get("queued_projects")
         )
-        background_failed = bool(background.get("last_error")) and any(
+        background_failed = background_failed_raw and any(
             "last index attempt failed" in item["reasons"] for item in items
         )
         healthy = (
@@ -1951,7 +2180,7 @@ class KnowledgeService:
             "watcher": watcher,
             "sweep": sweep,
             "background_index": background,
-            "cleanup": dict(self.cleanup_state),
+            "cleanup": cleanup,
             "index": {
                 "embedding_model": self.embedding_model,
                 "embedding_revision": self.embedding_revision,

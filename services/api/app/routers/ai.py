@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 
+from app.core.logging import get_logger
 from app.schemas.ai import (
     ChatRequest,
     ChatResponse,
@@ -26,6 +27,7 @@ from app.services.ollama_client import (
 )
 
 router = APIRouter(prefix="/api/v1", tags=["ai"])
+logger = get_logger("routers.ai")
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -41,9 +43,13 @@ async def ready(
         models = await client.list_models()
         selected_model = client.select_model(models)
     except OllamaError as exc:
+        _log_ollama_error("readiness", exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"code": "ollama_not_ready", "message": str(exc)},
+            detail={
+                "code": "ollama_not_ready",
+                "message": "Ollama is not ready",
+            },
         ) from exc
     return ReadyResponse(
         status="ready",
@@ -61,6 +67,7 @@ async def models(
         items = await client.list_models()
         default_model = client.select_model(items)
     except OllamaError as exc:
+        _log_ollama_error("list_models", exc)
         raise _http_error(exc) from exc
     return ModelListResponse(
         models=[ModelInfo.model_validate(item) for item in items],
@@ -82,6 +89,7 @@ async def chat(
         )
         return _chat_response(document)
     except OllamaError as exc:
+        _log_ollama_error("chat", exc)
         raise _http_error(exc) from exc
 
 
@@ -94,6 +102,7 @@ async def chat_stream(
         models = await client.list_models()
         selected_model = client.select_model(models, request.model)
     except OllamaError as exc:
+        _log_ollama_error("stream_setup", exc)
         raise _http_error(exc) from exc
 
     async def events() -> AsyncIterator[str]:
@@ -129,11 +138,12 @@ async def chat_stream(
                     }
                 )
         except OllamaError as exc:
+            _log_ollama_error("stream", exc)
             yield _sse(
                 {
                     "type": "error",
                     "code": _error_code(exc),
-                    "message": str(exc),
+                    "message": _public_error_message(exc),
                 }
             )
 
@@ -184,7 +194,10 @@ def _http_error(exc: OllamaError) -> HTTPException:
         code = status.HTTP_502_BAD_GATEWAY
     return HTTPException(
         status_code=code,
-        detail={"code": _error_code(exc), "message": str(exc)},
+        detail={
+            "code": _error_code(exc),
+            "message": _public_error_message(exc),
+        },
     )
 
 
@@ -198,6 +211,41 @@ def _error_code(exc: OllamaError) -> str:
     if isinstance(exc, OllamaProtocolError):
         return "ollama_invalid_response"
     return "ollama_error"
+
+
+def _public_error_message(exc: OllamaError) -> str:
+    """Return a stable client message without upstream exception details."""
+    if isinstance(exc, OllamaUnavailableError):
+        return "Ollama is unavailable"
+    if isinstance(exc, OllamaTimeoutError):
+        return "Ollama request timed out"
+    if isinstance(exc, OllamaResponseError):
+        if exc.status_code == 400:
+            return "Ollama rejected the request"
+        if exc.status_code == 404:
+            return "Requested model is not available"
+        if exc.status_code == 429:
+            return "Ollama is busy; retry later"
+        if exc.status_code == 503:
+            return "Ollama is unavailable"
+    if isinstance(exc, OllamaProtocolError):
+        return "Ollama returned an invalid response"
+    return "Ollama request failed"
+
+
+def _log_ollama_error(operation: str, exc: OllamaError) -> None:
+    """Log diagnostic metadata while excluding prompts and upstream bodies."""
+    upstream_status = (
+        exc.status_code if isinstance(exc, OllamaResponseError) else "-"
+    )
+    logger.warning(
+        "event=ollama_request_failed operation=%s code=%s "
+        "error_type=%s upstream_status=%s",
+        operation,
+        _error_code(exc),
+        exc.__class__.__name__,
+        upstream_status,
+    )
 
 
 def _sse(document: dict[str, Any]) -> str:

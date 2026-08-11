@@ -1,21 +1,22 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
-from pathlib import Path
 import sqlite3
 import time
-from uuid import uuid4
 import zipfile
+from pathlib import Path
+from uuid import uuid4
 
 import numpy as np
 import pytest
 
 from app import (
     CHUNK_VERSION,
+    DOCUMENT_EXTENSIONS,
     CodexHandoff,
     CodexHandoffResult,
-    DOCUMENT_EXTENSIONS,
     KnowledgeService,
     ProgressCapture,
     ProjectCreate,
@@ -261,7 +262,7 @@ def test_writeback_index_contract_syncs_research_and_coalesces_stage_notes(
             ProgressCapture(
                 session_id="session-1",
                 phase="implementation",
-                stage="build",
+                stage="../outside/private-stage",
                 title="Build",
                 content="durable stage progress",
                 status="completed",
@@ -304,11 +305,15 @@ def test_writeback_index_contract_syncs_research_and_coalesces_stage_notes(
         return research, progress, handoff, result
 
     research, progress, handoff, result = asyncio.run(exercise_contract())
+    progress_note = Path(progress["note"])
 
     assert research["index_pending"] is False
     assert research["index_status"] == "rebuilt"
     assert progress["index_pending"] is True
     assert progress["index_status"] == "scheduled"
+    assert "_agent-progress_" in progress_note.name
+    assert "outside" not in progress_note.name
+    assert "../outside/private-stage" in progress_note.read_text(encoding="utf-8")
     assert handoff["index_pending"] is True
     assert handoff["index_status"] == "coalesced"
     assert result["index_pending"] is True
@@ -454,3 +459,167 @@ def test_health_requires_completed_idle_sweep_and_detects_source_drift(
     assert changed["status"] == "degraded"
     assert changed["index"]["stale_projects"] == 1
     assert "source files changed" in changed["index"]["projects"][0]["reasons"]
+
+
+def test_health_report_does_not_expose_internal_exception_details(
+    tmp_path: Path,
+) -> None:
+    service = make_service(tmp_path)
+    secret = (
+        "Traceback: private path C:" + r"\Users\owner\vault" + " and prompt contents"
+    )
+    service.watcher_state["last_error"] = secret
+    service.sweep_state["last_error"] = secret
+    service.background_index_state["last_error"] = secret
+    service.cleanup_state["warnings"] = [secret]
+
+    report = service.health_report()
+    serialized = json.dumps(report)
+
+    assert secret not in serialized
+    assert report["watcher"]["last_error"] == "watcher operation failed"
+    assert report["sweep"]["last_error"] == "consistency sweep failed"
+    assert report["background_index"]["last_error"] == "background index failed"
+    assert report["cleanup"]["warnings"] == [
+        "cleanup operation reported a warning"
+    ]
+
+
+def test_safe_path_rejects_traversal_absolute_and_symlink_escape(
+    tmp_path: Path,
+) -> None:
+    service = make_service(tmp_path)
+    service.sources.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+
+    for unsafe in (
+        "../outside",
+        "nested/../../outside",
+        "/absolute/path",
+        "C:" + r"\absolute\path",
+        r"C:drive-relative",
+        r"\\server\share\file",
+        "nested//file",
+    ):
+        with pytest.raises(ValueError):
+            service.safe(service.sources, unsafe)
+
+    link = service.sources / "escape"
+    try:
+        link.symlink_to(outside, target_is_directory=True)
+    except OSError as exc:  # pragma: no cover - unprivileged Windows runners
+        pytest.skip(f"symbolic links unavailable: {exc}")
+    with pytest.raises(ValueError):
+        service.safe(service.sources, "escape/private.md")
+
+
+@pytest.mark.parametrize(
+    "source_path",
+    [
+        "../outside",
+        "nested/../outside",
+        "/absolute/path",
+        "C:" + r"\absolute\path",
+        r"\\server\share",
+    ],
+)
+def test_project_model_rejects_unsafe_source_paths(source_path: str) -> None:
+    with pytest.raises(ValueError):
+        ProjectCreate(id="sample", name="Sample", source_paths=[source_path])
+
+
+def test_project_creation_cannot_write_through_symlink_escape(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    managed_root = service.managed_root()
+    managed_root.mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    project_link = managed_root / "sample"
+    try:
+        project_link.symlink_to(outside, target_is_directory=True)
+    except OSError as exc:  # pragma: no cover - unprivileged Windows runners
+        pytest.skip(f"symbolic links unavailable: {exc}")
+
+    with pytest.raises(ValueError):
+        service.add(ProjectCreate(id="sample", name="Sample", source_paths=[]))
+    assert not (outside / "00_Project.md").exists()
+
+
+def test_managed_writeback_rejects_reparse_escape(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    vault = create_project(service)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    with pytest.raises(ValueError):
+        service._atomic_write(outside / "escaped.md", "must stay managed")
+    assert not (outside / "escaped.md").exists()
+
+    handoffs = vault / "Handoffs"
+    try:
+        handoffs.symlink_to(outside, target_is_directory=True)
+    except OSError as exc:  # pragma: no cover - unprivileged Windows runners
+        pytest.skip(f"symbolic links unavailable: {exc}")
+
+    with pytest.raises(ValueError):
+        asyncio.run(
+            service.capture_handoff(
+                "sample",
+                CodexHandoff(goal="Do not escape", local_plan={}),
+            )
+        )
+    assert list(outside.iterdir()) == []
+
+
+def test_handoff_result_is_limited_to_issued_managed_note(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    vault = create_project(service)
+    handoffs = vault / "Handoffs"
+    issued = service._write_note(
+        handoffs,
+        "codex-handoff",
+        "---\nstatus: pending\n---\n\n# Handoff\n",
+    )
+
+    def request(note: str) -> CodexHandoffResult:
+        return CodexHandoffResult(
+            handoff_note=note,
+            worker_id="worker-1",
+            success=True,
+            summary="complete",
+            output="validated",
+            workspace_path="/workspace/sample",
+        )
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    outside_note = outside / issued.name
+    outside_note.write_text("secret", encoding="utf-8")
+    for unsafe in (
+        f"../{issued.name}",
+        str(outside_note),
+        "C:" + r"\foreign\2026-01-01_000000_000000_codex-handoff_abcdef.md",
+    ):
+        with pytest.raises(ValueError):
+            asyncio.run(service.capture_handoff_result("sample", request(unsafe)))
+
+    linked_note = handoffs / "2026-01-01_000000_000000_codex-handoff_abcdef.md"
+    try:
+        linked_note.symlink_to(outside_note)
+    except OSError as exc:  # pragma: no cover - unprivileged Windows runners
+        pytest.skip(f"symbolic links unavailable: {exc}")
+    with pytest.raises(ValueError):
+        asyncio.run(
+            service.capture_handoff_result("sample", request(str(linked_note)))
+        )
+
+    async def record_valid_result() -> dict:
+        result = await service.capture_handoff_result(
+            "sample", request(issued.name)
+        )
+        await service.wait_for_background_indexes()
+        return result
+
+    result = asyncio.run(record_valid_result())
+    assert result["status"] == "completed"
+    assert "status: completed" in issued.read_text(encoding="utf-8")
