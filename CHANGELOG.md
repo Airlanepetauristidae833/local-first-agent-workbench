@@ -12,6 +12,14 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Broader hardware and operating-system validation from community deployments.
 - Additional model-provider adapters that preserve the existing trust boundaries.
 
+## [1.0.1] - 2026-08-11
+
+### Fixed
+
+- Serialized the single-process chat-run creation coordinator so concurrent requests with
+  the same idempotency key always reuse one durable run without returning a spurious 409
+  or reacquiring a completed session lease.
+
 ## [1.0.0] - 2026-08-11
 
 ### Added
@@ -37,5 +45,6 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Release checks that reject secrets, runtime data, personal paths, private network
   identifiers, archives, binary artifacts, and unlisted files.
 
-[Unreleased]: https://github.com/Joviei/local-first-agent-workbench/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Joviei/local-first-agent-workbench/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/Joviei/local-first-agent-workbench/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Joviei/local-first-agent-workbench/releases/tag/v1.0.0

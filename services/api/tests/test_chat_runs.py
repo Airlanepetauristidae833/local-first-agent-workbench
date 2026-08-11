@@ -93,8 +93,8 @@ def test_chat_run_route_is_concurrent_and_idempotent(client) -> None:
             headers={"Idempotency-Key": "same-request"},
         )
 
-    with ThreadPoolExecutor(max_workers=6) as executor:
-        responses = list(executor.map(create, range(6)))
+    with ThreadPoolExecutor(max_workers=16) as executor:
+        responses = list(executor.map(create, range(16)))
 
     assert {response.status_code for response in responses} == {202}
     run_ids = {response.json()["id"] for response in responses}
@@ -106,12 +106,24 @@ def test_chat_run_route_is_concurrent_and_idempotent(client) -> None:
 
     session = _agent_service().get_session("durable-session")
     assert session is not None
+    assert session.active_operation is None
     run_messages = [
         message
         for message in session.messages
         if message.metadata.get("chat_run_id") == run_id
     ]
     assert [message.role for message in run_messages] == ["user", "assistant"]
+
+    replay = client.post(
+        "/api/v1/agent/sessions/durable-session/chat-runs",
+        json={"content": "Write the durable answer."},
+        headers={"Idempotency-Key": "same-request"},
+    )
+    assert replay.status_code == 202
+    assert replay.json()["id"] == run_id
+    replayed_session = _agent_service().get_session("durable-session")
+    assert replayed_session is not None
+    assert replayed_session.active_operation is None
 
 
 def test_sse_replays_persisted_events_and_resumes_from_last_event_id(client) -> None:

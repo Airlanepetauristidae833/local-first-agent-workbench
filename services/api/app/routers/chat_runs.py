@@ -3,6 +3,9 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import datetime, timezone
+from functools import wraps
+from threading import Lock
+from typing import Any, Callable
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from fastapi import (
@@ -44,6 +47,26 @@ TERMINAL_STATUSES = {
     ChatRunStatus.FAILED,
     ChatRunStatus.CANCELLED,
 }
+_CHAT_RUN_CREATION_LOCK = Lock()
+
+
+def _serialize_chat_run_creation(
+    handler: Callable[..., ChatRun],
+) -> Callable[..., ChatRun]:
+    """Serialize the cross-service session-claim and run-create critical section.
+
+    Agent sessions and chat runs share SQLite but are intentionally managed by
+    separate services. The supported deployment has one API process, so this
+    short coordinator lock ensures concurrent retries observe the first durable
+    run before they can mutate the session a second time.
+    """
+
+    @wraps(handler)
+    def wrapped(*args: Any, **kwargs: Any) -> ChatRun:
+        with _CHAT_RUN_CREATION_LOCK:
+            return handler(*args, **kwargs)
+
+    return wrapped
 
 
 def get_chat_run_service() -> ChatRunService:
@@ -63,6 +86,7 @@ def _http_error(exc: Exception) -> HTTPException:
     response_model=ChatRun,
     status_code=status.HTTP_202_ACCEPTED,
 )
+@_serialize_chat_run_creation
 def create_chat_run(
     session_id: str,
     payload: ChatRunCreate,
