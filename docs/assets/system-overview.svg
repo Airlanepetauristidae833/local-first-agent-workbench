@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title description">
+  <title id="title">Local-First Agent Workbench system overview</title>
+  <desc id="description">A diagram showing browser clients, the durable FastAPI agent gateway, local state and policy services, and explicit connections to Ollama, Obsidian knowledge, approved web research, and an optional Codex worker.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1020"/>
+      <stop offset="1" stop-color="#121832"/>
+    </linearGradient>
+    <linearGradient id="gateway" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6d55f8"/>
+      <stop offset="1" stop-color="#4076e8"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#050711" flood-opacity="0.38"/>
+    </filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7d8bad"/>
+    </marker>
+    <style>
+      .label { font-family: Arial, Helvetica, sans-serif; fill: #f7f9ff; }
+      .muted { font-family: Arial, Helvetica, sans-serif; fill: #a9b4cf; }
+      .micro { font-family: Arial, Helvetica, sans-serif; fill: #7f8ba8; font-size: 15px; letter-spacing: 1.4px; }
+      .node { fill: #171f3a; stroke: #34405f; stroke-width: 1.5; }
+      .node-blue { fill: #142943; stroke: #2e80bf; stroke-width: 1.5; }
+      .node-green { fill: #12362f; stroke: #2d9b7c; stroke-width: 1.5; }
+      .node-amber { fill: #382c1d; stroke: #ba813b; stroke-width: 1.5; }
+      .edge { fill: none; stroke: #7d8bad; stroke-width: 2.2; marker-end: url(#arrow); }
+      .edge-dashed { fill: none; stroke: #6587a5; stroke-width: 2; stroke-dasharray: 8 7; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1440" height="900" fill="url(#background)"/>
+  <circle cx="1280" cy="110" r="210" fill="#6d55f8" opacity="0.08"/>
+  <circle cx="150" cy="820" r="260" fill="#2abf93" opacity="0.055"/>
+
+  <text class="label" x="70" y="72" font-size="36" font-weight="700">Local-First Agent Workbench</text>
+  <text class="muted" x="70" y="105" font-size="18">Durable execution, inspectable memory, source-backed knowledge, and explicit authority</text>
+  <rect x="70" y="132" width="1300" height="690" rx="28" fill="#0d1429" stroke="#2b3655" stroke-width="2"/>
+  <text class="micro" x="98" y="166">PRIVATE WORKSTATION / OPTIONAL PRIVATE TAILNET BOUNDARY</text>
+
+  <!-- Interaction layer -->
+  <text class="micro" x="115" y="215">INTERACTION</text>
+  <rect class="node" x="115" y="235" width="300" height="112" rx="18" filter="url(#shadow)"/>
+  <circle cx="156" cy="276" r="18" fill="#705df6"/>
+  <path d="M147 276h18M156 267v18" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  <text class="label" x="188" y="277" font-size="22" font-weight="700">Agent Workbench</text>
+  <text class="muted" x="144" y="311" font-size="15">Projects · stages · knowledge · memory</text>
+  <text class="muted" x="144" y="333" font-size="15">FastAPI Console at /console</text>
+
+  <rect class="node" x="1025" y="235" width="300" height="112" rx="18" filter="url(#shadow)"/>
+  <rect x="1056" y="258" width="37" height="30" rx="7" fill="#2c9de9"/>
+  <circle cx="1067" cy="273" r="3" fill="#fff"/><circle cx="1076" cy="273" r="3" fill="#fff"/><circle cx="1085" cy="273" r="3" fill="#fff"/>
+  <text class="label" x="1110" y="277" font-size="22" font-weight="700">Open WebUI</text>
+  <text class="muted" x="1054" y="311" font-size="15">Native Ollama chat or Personal Agent</text>
+  <text class="muted" x="1054" y="333" font-size="15">Separate histories by deliberate design</text>
+
+  <!-- Gateway -->
+  <path class="edge" d="M415 291 H545"/>
+  <path class="edge" d="M1025 291 H895"/>
+  <rect x="545" y="218" width="350" height="146" rx="22" fill="url(#gateway)" filter="url(#shadow)"/>
+  <text class="label" x="720" y="260" font-size="25" font-weight="700" text-anchor="middle">Durable Agent Gateway</text>
+  <text class="label" x="720" y="289" font-size="16" text-anchor="middle" opacity="0.9">FastAPI · explicit routing · approval boundaries</text>
+  <rect x="578" y="313" width="284" height="30" rx="15" fill="#111a39" opacity="0.64"/>
+  <text class="label" x="720" y="334" font-size="14" text-anchor="middle">SQLite-backed runs + replayable SSE</text>
+
+  <!-- State and control -->
+  <text class="micro" x="115" y="424">STATE AND CONTROL</text>
+  <path class="edge" d="M720 364 V438"/>
+  <rect class="node" x="115" y="456" width="340" height="128" rx="18"/>
+  <circle cx="154" cy="493" r="17" fill="#4b5d87"/>
+  <path d="M143 486c0-5 22-5 22 0s-22 5-22 0v18c0 5 22 5 22 0v-18M143 495c0 5 22 5 22 0" fill="none" stroke="#fff" stroke-width="2"/>
+  <text class="label" x="187" y="499" font-size="20" font-weight="700">Durable local state</text>
+  <text class="muted" x="144" y="531" font-size="15">Runs · ordered events · task history</text>
+  <text class="muted" x="144" y="554" font-size="15">Global and project-scoped memory</text>
+
+  <rect class="node" x="550" y="456" width="340" height="128" rx="18"/>
+  <circle cx="589" cy="493" r="17" fill="#705df6"/>
+  <path d="M581 494l6 6 11-14" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="label" x="622" y="499" font-size="20" font-weight="700">Context and authority</text>
+  <text class="muted" x="579" y="531" font-size="15">Rolling summaries · fixed route</text>
+  <text class="muted" x="579" y="554" font-size="15">Consent-gated local context handoff</text>
+
+  <rect class="node" x="985" y="456" width="340" height="128" rx="18"/>
+  <circle cx="1024" cy="493" r="17" fill="#2abf93"/>
+  <path d="M1014 493h20M1024 483v20" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+  <text class="label" x="1057" y="499" font-size="20" font-weight="700">Knowledge orchestration</text>
+  <text class="muted" x="1014" y="531" font-size="15">Provenance · index diagnostics</text>
+  <text class="muted" x="1014" y="554" font-size="15">Approved research and writeback</text>
+
+  <path class="edge" d="M650 364 C650 408 285 405 285 456"/>
+  <path class="edge" d="M720 364 V456"/>
+  <path class="edge" d="M790 364 C790 408 1155 405 1155 456"/>
+
+  <!-- Providers -->
+  <text class="micro" x="115" y="637">BOUNDED PROVIDERS</text>
+  <rect class="node-blue" x="115" y="660" width="260" height="105" rx="18"/>
+  <text class="label" x="145" y="701" font-size="21" font-weight="700">Ollama</text>
+  <text class="muted" x="145" y="729" font-size="15">Local model inference</text>
+  <text class="muted" x="145" y="750" font-size="14">Host-managed model cache</text>
+
+  <rect class="node-green" x="430" y="660" width="260" height="105" rx="18"/>
+  <text class="label" x="460" y="701" font-size="21" font-weight="700">Obsidian + RAG</text>
+  <text class="muted" x="460" y="729" font-size="15">Markdown source of truth</text>
+  <text class="muted" x="460" y="750" font-size="14">Rebuildable derived index</text>
+
+  <rect class="node-green" x="745" y="660" width="260" height="105" rx="18"/>
+  <text class="label" x="775" y="701" font-size="21" font-weight="700">SearXNG</text>
+  <text class="muted" x="775" y="729" font-size="15">Approved source discovery</text>
+  <text class="muted" x="775" y="750" font-size="14">External content is evidence</text>
+
+  <rect class="node-amber" x="1060" y="660" width="265" height="105" rx="18"/>
+  <text class="label" x="1090" y="701" font-size="21" font-weight="700">Codex worker</text>
+  <text class="muted" x="1090" y="729" font-size="15">Optional tool execution</text>
+  <text class="muted" x="1090" y="750" font-size="14">Isolated, approval-gated handoff</text>
+
+  <path class="edge" d="M620 584 C620 625 245 618 245 660"/>
+  <path class="edge" d="M1085 584 C1085 625 560 618 560 660"/>
+  <path class="edge" d="M1155 584 C1155 625 875 618 875 660"/>
+  <path class="edge" d="M820 584 C820 625 1192 618 1192 660"/>
+  <path class="edge-dashed" d="M1290 347 H1340 V620 H410 C330 620 275 640 245 660"/>
+  <text class="muted" x="1197" y="610" font-size="13">native model path</text>
+
+  <rect x="70" y="845" width="18" height="18" rx="5" fill="#2abf93"/>
+  <text class="muted" x="100" y="860" font-size="15">Local-first: loopback ports by default; remote access requires a separately authenticated private boundary.</text>
+</svg>

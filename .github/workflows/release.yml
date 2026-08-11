@@ -1,0 +1,111 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing semantic-version tag to release (for example, v1.0.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+    with:
+      checkout_ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+  publish:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Verify release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Release tag must use semantic versioning (for example, v1.0.0)." >&2
+            exit 1
+          fi
+
+          tag_commit="$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")"
+          head_commit="$(git rev-parse "HEAD^{commit}")"
+          if [[ "$tag_commit" != "$head_commit" ]]; then
+            echo "Checked-out commit does not match ${RELEASE_TAG}." >&2
+            exit 1
+          fi
+
+      - name: Build release archive and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          repository_name="${GITHUB_REPOSITORY#*/}"
+          asset_directory="$RUNNER_TEMP/release-assets"
+          archive_name="${repository_name}-${RELEASE_TAG}.zip"
+          mkdir -p "$asset_directory"
+          git archive \
+            --format=zip \
+            --prefix="${repository_name}-${RELEASE_TAG}/" \
+            --output="$asset_directory/$archive_name" \
+            HEAD
+          (
+            cd "$asset_directory"
+            sha256sum "$archive_name" > SHA256SUMS
+          )
+          echo "ASSET_DIRECTORY=$asset_directory" >> "$GITHUB_ENV"
+
+      - name: Generate SBOM from the release source
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          path: .
+          format: spdx-json
+          output-file: ${{ env.ASSET_DIRECTORY }}/sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Preserve release assets as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets-${{ env.RELEASE_TAG }}
+          path: ${{ env.ASSET_DIRECTORY }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub release
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t assets < <(find "$ASSET_DIRECTORY" -maxdepth 1 -type f -print | sort)
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
+          else
+            gh release create "$RELEASE_TAG" \
+              "${assets[@]}" \
+              --generate-notes \
+              --title "$RELEASE_TAG" \
+              --verify-tag
+          fi

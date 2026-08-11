@@ -14,7 +14,7 @@ ENV PYTHONUNBUFFERED=1 \
     KNOWLEDGE_ORPHAN_GRACE_SECONDS=300
 
 FROM base AS test
-RUN pip install --no-cache-dir pytest==8.4.1
+RUN pip install --no-cache-dir pytest==9.0.3
 COPY tests /service/tests
 CMD ["python", "-m", "pytest", "-q", "tests"]
 

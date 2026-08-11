@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="760" viewBox="0 0 1440 760" role="img" aria-labelledby="title description">
+  <title id="title">Project workflow from request to durable result</title>
+  <desc id="description">A staged workflow showing local capability analysis, local knowledge retrieval, approval-gated web research when needed, a fixed execution route, staged work, and durable results with memory and knowledge writeback.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1223"/>
+      <stop offset="1" stop-color="#151b34"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7659fa"/>
+      <stop offset="1" stop-color="#3c83ed"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0 0L10 5L0 10Z" fill="#8290b3"/>
+    </marker>
+    <style>
+      .t { font-family: Arial, Helvetica, sans-serif; fill: #f7f9ff; }
+      .m { font-family: Arial, Helvetica, sans-serif; fill: #aab5d0; }
+      .cap { font-family: Arial, Helvetica, sans-serif; fill: #8190b2; font-size: 14px; letter-spacing: 1.2px; }
+      .card { fill: #171f3a; stroke: #34415f; stroke-width: 1.5; }
+      .line { fill: none; stroke: #8290b3; stroke-width: 2.2; marker-end: url(#arrow); }
+      .dash { fill: none; stroke: #5f718f; stroke-width: 1.8; stroke-dasharray: 7 7; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1440" height="760" fill="url(#bg)"/>
+  <circle cx="1310" cy="80" r="230" fill="#7258f6" opacity="0.07"/>
+  <text class="t" x="66" y="68" font-size="34" font-weight="700">One project, one explicit route, durable progress</text>
+  <text class="m" x="66" y="100" font-size="18">The browser presents decisions; it does not own the lifetime of execution.</text>
+
+  <!-- top path -->
+  <path class="line" d="M264 260H300"/>
+  <path class="line" d="M512 260H548"/>
+  <path class="line" d="M760 260H796"/>
+  <path class="line" d="M1008 260H1044"/>
+  <path class="line" d="M1256 260H1292"/>
+
+  <rect x="52" y="168" width="212" height="184" rx="20" fill="url(#accent)"/>
+  <text class="t" x="80" y="201" font-size="14" font-weight="700">01 · REQUEST</text>
+  <text class="t" x="80" y="242" font-size="23" font-weight="700">Define the goal</text>
+  <text class="t" x="80" y="274" font-size="15" opacity="0.9">Expected output</text>
+  <text class="t" x="80" y="298" font-size="15" opacity="0.9">Constraints and evidence</text>
+  <text class="t" x="80" y="322" font-size="15" opacity="0.9">Optional workspace</text>
+
+  <rect class="card" x="300" y="168" width="212" height="184" rx="20"/>
+  <text class="cap" x="328" y="201">02 · ANALYZE</text>
+  <text class="t" x="328" y="242" font-size="22" font-weight="700">Local model first</text>
+  <text class="m" x="328" y="274" font-size="15">Capability assessment</text>
+  <text class="m" x="328" y="298" font-size="15">Local / Codex allocation</text>
+  <text class="m" x="328" y="322" font-size="15">Human-readable reason</text>
+
+  <rect class="card" x="548" y="168" width="212" height="184" rx="20"/>
+  <text class="cap" x="576" y="201">03 · RETRIEVE</text>
+  <text class="t" x="576" y="236" font-size="21" font-weight="700">Check local</text>
+  <text class="t" x="576" y="262" font-size="21" font-weight="700">knowledge</text>
+  <text class="m" x="576" y="290" font-size="15">Obsidian source notes</text>
+  <text class="m" x="576" y="314" font-size="15">Project-scoped RAG</text>
+  <text class="m" x="576" y="338" font-size="15">Visible diagnostics</text>
+
+  <rect class="card" x="796" y="168" width="212" height="184" rx="20"/>
+  <text class="cap" x="824" y="201">04 · LOCK ROUTE</text>
+  <text class="t" x="824" y="242" font-size="22" font-weight="700">Commit the plan</text>
+  <text class="m" x="824" y="274" font-size="15">Fully local, or</text>
+  <text class="m" x="824" y="298" font-size="15">Local + Codex</text>
+  <text class="m" x="824" y="322" font-size="15">Consent stays explicit</text>
+
+  <rect class="card" x="1044" y="168" width="212" height="184" rx="20"/>
+  <text class="cap" x="1072" y="201">05 · IMPLEMENT</text>
+  <text class="t" x="1072" y="242" font-size="22" font-weight="700">Advance stages</text>
+  <text class="m" x="1072" y="274" font-size="15">Visible current step</text>
+  <text class="m" x="1072" y="298" font-size="15">Optional instruction</text>
+  <text class="m" x="1072" y="322" font-size="15">Persisted progress</text>
+
+  <rect class="card" x="1292" y="168" width="96" height="184" rx="20"/>
+  <text class="cap" x="1316" y="201">06</text>
+  <circle cx="1340" cy="256" r="30" fill="#1d725f"/>
+  <path d="M1326 256l9 9 19-21" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="t" x="1340" y="314" font-size="16" font-weight="700" text-anchor="middle">Result</text>
+
+  <!-- research branch -->
+  <path class="dash" d="M654 352V425H795"/>
+  <rect x="795" y="400" width="356" height="114" rx="18" fill="#12362f" stroke="#2d9b7c" stroke-width="1.5"/>
+  <text class="t" x="825" y="434" font-size="18" font-weight="700">Only when local evidence is insufficient</text>
+  <text class="m" x="825" y="463" font-size="15">Propose sources → user approval → research</text>
+  <text class="m" x="825" y="487" font-size="15">Retain provenance → write note → rebuild index</text>
+  <path class="dash" d="M973 514V551H902V352"/>
+
+  <!-- persistent substrate -->
+  <rect x="52" y="579" width="1336" height="113" rx="22" fill="#11182e" stroke="#2b3858" stroke-width="1.5"/>
+  <text class="cap" x="80" y="614">DURABLE SUBSTRATE</text>
+  <rect x="80" y="634" width="244" height="35" rx="17" fill="#202a48"/>
+  <text class="t" x="202" y="657" font-size="14" text-anchor="middle">SQLite task + event history</text>
+  <rect x="354" y="634" width="244" height="35" rx="17" fill="#202a48"/>
+  <text class="t" x="476" y="657" font-size="14" text-anchor="middle">Replayable streaming output</text>
+  <rect x="628" y="634" width="244" height="35" rx="17" fill="#202a48"/>
+  <text class="t" x="750" y="657" font-size="14" text-anchor="middle">Bounded context + summaries</text>
+  <rect x="902" y="634" width="214" height="35" rx="17" fill="#202a48"/>
+  <text class="t" x="1009" y="657" font-size="14" text-anchor="middle">Inspectable memory</text>
+  <rect x="1146" y="634" width="214" height="35" rx="17" fill="#202a48"/>
+  <text class="t" x="1253" y="657" font-size="14" text-anchor="middle">Knowledge writeback</text>
+
+  <path d="M158 352V579M406 352V579M654 352V579M902 352V579M1150 352V579M1340 352V579" fill="none" stroke="#3a4768" stroke-width="1.5" stroke-dasharray="5 7"/>
+  <text class="m" x="66" y="730" font-size="15">Explanatory workflow map — no user data, benchmark result, or adoption metric is represented.</text>
+</svg>

@@ -1,0 +1,87 @@
+name: Configuration help
+description: Ask for help with a documented self-hosted setup or integration
+title: "[Config]: "
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Support is best-effort. Read [Operations](https://github.com/Joviei/local-first-agent-workbench/blob/main/docs/OPERATIONS.md) and [Support](https://github.com/Joviei/local-first-agent-workbench/blob/main/SUPPORT.md) first. Never paste `.env`, tokens, cookies, certificates, database contents, personal documents, real vault content, private hostnames or addresses, Tailnet names, or unredacted logs.
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: Configuration goal
+      description: What documented outcome are you trying to reach?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Setup phase
+      options:
+        - Bootstrap
+        - Start or health check
+        - Ollama or model setup
+        - Open WebUI first-run setup
+        - Personal Agent provider reconciliation
+        - Knowledge or Obsidian setup
+        - Optional Codex handoff worker
+        - Private remote access
+        - Backup, restore, or upgrade
+        - Validation or CI
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Use generic values and omit private identifiers.
+      placeholder: |
+        - Host OS and version:
+        - Docker Engine/Desktop and Compose versions:
+        - Repository commit or release:
+        - Ollama version and model:
+        - Access path: loopback / private overlay
+    validations:
+      required: true
+
+  - type: textarea
+    id: attempted
+    attributes:
+      label: What you tried
+      description: List the commands or documented steps and the sanitized outcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: settings
+    attributes:
+      label: Relevant redacted settings
+      description: Include only setting names and non-sensitive values needed to understand the problem. Replace sensitive or identifying values with placeholders.
+      render: text
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized status or error output
+      description: Include the smallest relevant excerpt, with all private values removed.
+      render: text
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: I reviewed README, Operations, and existing issues.
+          required: true
+        - label: I removed secrets, personal data, private network identifiers, and local absolute paths.
+          required: true
+        - label: I understand this project does not support direct public-internet exposure by default.
+          required: true
+        - label: This request does not contain a vulnerability or sensitive security finding.
+          required: true

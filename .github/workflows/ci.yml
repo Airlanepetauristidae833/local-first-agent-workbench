@@ -2,8 +2,16 @@ name: release-validation
 
 on:
   push:
+    branches:
+      - "**"
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      checkout_ref:
+        description: Git reference to validate
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -19,6 +27,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout_ref || github.ref }}
+          persist-credentials: false
 
       - name: Configure isolated paths
         run: |
@@ -87,6 +98,8 @@ jobs:
 
       - name: Remove CI containers and volumes
         if: always()
-        run: >-
-          docker compose --env-file "$RELEASE_ENV" --profile test
-          down --volumes --remove-orphans
+        run: |
+          if [[ -f "$RELEASE_ENV" ]]; then
+            docker compose --env-file "$RELEASE_ENV" --profile test \
+              down --volumes --remove-orphans
+          fi
