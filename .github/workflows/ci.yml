@@ -16,12 +16,14 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    env:
-      RELEASE_ENV: ${{ runner.temp }}/local-first-agent.env
-      RELEASE_STATE: ${{ runner.temp }}/local-first-agent-state
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+
+      - name: Configure isolated paths
+        run: |
+          echo "RELEASE_ENV=$RUNNER_TEMP/local-first-agent.env" >> "$GITHUB_ENV"
+          echo "RELEASE_STATE=$RUNNER_TEMP/local-first-agent-state" >> "$GITHUB_ENV"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -41,17 +43,25 @@ jobs:
         run: |
           python3 scripts/validate_sources.py
           bash -n scripts/*.sh
-          pwsh -NoLogo -NoProfile -Command '& {
-            $failures = @()
-            Get-ChildItem scripts -Filter *.ps1 | ForEach-Object {
-              $tokens = $null; $errors = $null
-              [void][System.Management.Automation.Language.Parser]::ParseFile(
-                $_.FullName, [ref]$tokens, [ref]$errors
-              )
-              $failures += $errors
-            }
-            if ($failures.Count) { $failures | Out-String | Write-Error; exit 1 }
-          }'
+
+      - name: Validate PowerShell syntax
+        shell: pwsh
+        run: |
+          $failures = @()
+          Get-ChildItem scripts -Filter *.ps1 | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              $_.FullName,
+              [ref]$tokens,
+              [ref]$errors
+            )
+            $failures += $errors
+          }
+          if ($failures.Count) {
+            $failures | Out-String | Write-Error
+            exit 1
+          }
 
       - name: Run API tests
         run: >-
